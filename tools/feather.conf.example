@@ -1,0 +1,27 @@
+# FeatherTV configuration. Copy it to the device with:
+#   adb push feather.conf /sdcard/Android/data/tv.feathertv.home/files/feather.conf
+# It's applied when you return to the home screen. The app rewrites this file when you change
+# something from Options or the app menu.
+
+# FeatherTV's language: auto (the system's), en, es, pt, fr, it, de.
+language=auto
+
+# Look (also available in Options with the remote).
+# accent: white, blue, cyan, green, amber, pink, violet
+# tiles: small, medium, large   clock: auto, 12h, 24h   background: stage, black
+accent=white
+tiles=medium
+clock=auto
+background=stage
+
+# App order (comma-separated package names). Apps not listed come after, in alphabetical order.
+apps.order=com.netflix.ninja,com.amazon.firetv.youtube,com.disney.disneyplus,com.crunchyroll.crunchyroid
+
+# Hidden apps.
+apps.hide=com.amazon.bueller.music,com.amazon.firetv.troubleshooting
+
+# Phone apps (without a TV banner) to show anyway.
+apps.show=com.amazon.cloud9
+
+# Custom names: name.<package>=Name
+name.com.amazon.cloud9=Browser

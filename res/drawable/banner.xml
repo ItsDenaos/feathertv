@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- TV banner (320x180 dp): the app's own "stage" with the feather in the center. -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item>
+        <shape android:shape="rectangle">
+            <size android:width="320dp" android:height="180dp" />
+            <gradient android:type="radial" android:gradientRadius="230dp"
+                android:centerX="0.72" android:centerY="0.22"
+                android:startColor="#FF5B3FE0" android:endColor="#FF000000" />
+        </shape>
+    </item>
+    <item android:drawable="@drawable/ic_feather"
+        android:left="115dp" android:right="115dp" android:top="45dp" android:bottom="45dp" />
+</layer-list>

@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="settings">Einstellungen</string>
+    <string name="good_morning">Guten Morgen</string>
+    <string name="good_afternoon">Guten Tag</string>
+    <string name="good_evening">Guten Abend</string>
+    <string name="launch_failed">%1$s konnte nicht geöffnet werden</string>
+    <string name="guard_label">FeatherTV-Home-Taste</string>
+    <string name="guard_description">Öffnet FeatherTV, wenn du die Home-Taste drückst. Reagiert nur, wenn der Amazon-Startbildschirm erscheint, und liest nie den Bildschirminhalt.</string>
+    <string name="guard_off">Die Home-Taste ist nicht mit FeatherTV verknüpft. Führe das Installationsprogramm auf deinem Computer erneut aus.</string>
+
+    <string name="menu_move">Verschieben</string>
+    <string name="menu_hide">Ausblenden</string>
+    <string name="menu_rename">Umbenennen</string>
+    <string name="menu_info">App-Info</string>
+    <string name="menu_options">FeatherTV-Optionen</string>
+    <string name="move_hint">Mit ◀ ▶ verschieben. Zum Beenden OK drücken.</string>
+    <string name="hidden_toast">%1$s ist ausgeblendet. In den Optionen kannst du sie wieder einblenden.</string>
+    <string name="rename_title">%1$s umbenennen</string>
+    <string name="rename_hint">Leer lassen, um den Originalnamen zu verwenden</string>
+    <string name="info_failed">App-Info konnte nicht geöffnet werden</string>
+
+    <string name="options_title">Optionen</string>
+    <string name="opt_language">Sprache</string>
+    <string name="opt_accent">Fokusfarbe</string>
+    <string name="opt_tiles">Kachelgröße</string>
+    <string name="opt_clock">Uhr</string>
+    <string name="opt_background">Hintergrund</string>
+    <string name="opt_hidden">Ausgeblendete Apps</string>
+    <string name="opt_reset">Reihenfolge und Namen zurücksetzen</string>
+    <string name="opt_about">Über</string>
+    <string name="val_auto">Automatisch</string>
+    <string name="val_12h">12 Stunden</string>
+    <string name="val_24h">24 Stunden</string>
+    <string name="val_stage">Bühne (Farbschein)</string>
+    <string name="val_black">Reines Schwarz</string>
+    <string name="hidden_none">Keine ausgeblendeten Apps.</string>
+    <string name="hidden_restore_hint">Wähle eine App, um sie wieder einzublenden.</string>
+    <string name="reset_done">Reihenfolge und Namen zurückgesetzt</string>
+    <string name="about_value">Version %1$s</string>
+    <string-array name="accent_names">
+        <item>Weiß</item><item>Blau</item><item>Cyan</item><item>Grün</item>
+        <item>Bernstein</item><item>Rosa</item><item>Violett</item>
+    </string-array>
+    <string-array name="tile_size_names">
+        <item>Klein</item><item>Mittel</item><item>Groß</item>
+    </string-array>
+</resources>

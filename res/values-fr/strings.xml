@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="settings">Paramètres</string>
+    <string name="good_morning">Bonjour</string>
+    <string name="good_afternoon">Bon après-midi</string>
+    <string name="good_evening">Bonsoir</string>
+    <string name="launch_failed">Impossible d’ouvrir %1$s</string>
+    <string name="guard_label">Bouton Accueil de FeatherTV</string>
+    <string name="guard_description">Ouvre FeatherTV quand vous appuyez sur Accueil. Il réagit uniquement à l’apparition de l’écran d’accueil d’Amazon et ne lit jamais le contenu de l’écran.</string>
+    <string name="guard_off">Le bouton Accueil n’est pas associé à FeatherTV. Relancez l’installateur sur votre ordinateur.</string>
+
+    <string name="menu_move">Déplacer</string>
+    <string name="menu_hide">Masquer</string>
+    <string name="menu_rename">Renommer</string>
+    <string name="menu_info">Infos sur l’appli</string>
+    <string name="menu_options">Options de FeatherTV</string>
+    <string name="move_hint">Utilisez ◀ ▶ pour déplacer. Appuyez sur OK pour terminer.</string>
+    <string name="hidden_toast">%1$s est masquée. Vous pouvez la réafficher dans Options.</string>
+    <string name="rename_title">Renommer %1$s</string>
+    <string name="rename_hint">Laissez vide pour utiliser le nom d’origine</string>
+    <string name="info_failed">Impossible d’ouvrir les infos de l’appli</string>
+
+    <string name="options_title">Options</string>
+    <string name="opt_language">Langue</string>
+    <string name="opt_accent">Couleur de sélection</string>
+    <string name="opt_tiles">Taille des vignettes</string>
+    <string name="opt_clock">Horloge</string>
+    <string name="opt_background">Arrière-plan</string>
+    <string name="opt_hidden">Applis masquées</string>
+    <string name="opt_reset">Réinitialiser l’ordre et les noms</string>
+    <string name="opt_about">À propos</string>
+    <string name="val_auto">Automatique</string>
+    <string name="val_12h">12 heures</string>
+    <string name="val_24h">24 heures</string>
+    <string name="val_stage">Scène (halo de couleur)</string>
+    <string name="val_black">Noir pur</string>
+    <string name="hidden_none">Aucune appli masquée.</string>
+    <string name="hidden_restore_hint">Choisissez une appli pour la réafficher.</string>
+    <string name="reset_done">Ordre et noms réinitialisés</string>
+    <string name="about_value">Version %1$s</string>
+    <string-array name="accent_names">
+        <item>Blanc</item><item>Bleu</item><item>Cyan</item><item>Vert</item>
+        <item>Ambre</item><item>Rose</item><item>Violet</item>
+    </string-array>
+    <string-array name="tile_size_names">
+        <item>Petite</item><item>Moyenne</item><item>Grande</item>
+    </string-array>
+</resources>

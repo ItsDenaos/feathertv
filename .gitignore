@@ -1,0 +1,6 @@
+build/
+keys/
+.ftv-state/
+firestick-respaldo/
+*.apk
+*.idsig

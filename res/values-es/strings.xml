@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="settings">Ajustes</string>
+    <string name="good_morning">Buenos días</string>
+    <string name="good_afternoon">Buenas tardes</string>
+    <string name="good_evening">Buenas noches</string>
+    <string name="launch_failed">No se pudo abrir %1$s</string>
+    <string name="guard_label">Botón Inicio de FeatherTV</string>
+    <string name="guard_description">Abre FeatherTV al pulsar Inicio. Solo reacciona cuando aparece la pantalla de inicio de Amazon y nunca lee lo que hay en pantalla.</string>
+    <string name="guard_off">El botón Inicio no está vinculado a FeatherTV. Vuelve a ejecutar el instalador en tu computadora.</string>
+
+    <string name="menu_move">Mover</string>
+    <string name="menu_hide">Ocultar</string>
+    <string name="menu_rename">Cambiar nombre</string>
+    <string name="menu_info">Información de la app</string>
+    <string name="menu_options">Opciones de FeatherTV</string>
+    <string name="move_hint">Usa ◀ ▶ para mover. Pulsa OK al terminar.</string>
+    <string name="hidden_toast">%1$s está oculta. Puedes volver a mostrarla en Opciones.</string>
+    <string name="rename_title">Cambiar nombre de %1$s</string>
+    <string name="rename_hint">Déjalo vacío para usar el nombre original</string>
+    <string name="info_failed">No se pudo abrir la información de la app</string>
+
+    <string name="options_title">Opciones</string>
+    <string name="opt_language">Idioma</string>
+    <string name="opt_accent">Color del foco</string>
+    <string name="opt_tiles">Tamaño de los mosaicos</string>
+    <string name="opt_clock">Reloj</string>
+    <string name="opt_background">Fondo</string>
+    <string name="opt_hidden">Apps ocultas</string>
+    <string name="opt_reset">Restablecer orden y nombres</string>
+    <string name="opt_about">Acerca de</string>
+    <string name="val_auto">Automático</string>
+    <string name="val_12h">12 horas</string>
+    <string name="val_24h">24 horas</string>
+    <string name="val_stage">Escenario (halo de color)</string>
+    <string name="val_black">Negro puro</string>
+    <string name="hidden_none">No hay apps ocultas.</string>
+    <string name="hidden_restore_hint">Elige una app para volver a mostrarla.</string>
+    <string name="reset_done">Orden y nombres restablecidos</string>
+    <string name="about_value">Versión %1$s</string>
+    <string-array name="accent_names">
+        <item>Blanco</item><item>Azul</item><item>Cian</item><item>Verde</item>
+        <item>Ámbar</item><item>Rosa</item><item>Violeta</item>
+    </string-array>
+    <string-array name="tile_size_names">
+        <item>Pequeño</item><item>Mediano</item><item>Grande</item>
+    </string-array>
+</resources>
