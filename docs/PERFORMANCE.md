@@ -21,6 +21,32 @@ loaded in the background while FeatherTV runs as well. The Fire OS launcher was 
 that already had part of Fire OS's advertising and telemetry disabled; out of the box it is likely
 to be heavier. Its cold start wasn't measured because it is a system app that is always running.
 
+Version 1.1.0 (Android TV support) doesn't change anything on Fire OS. Measured back to back on the
+same device, the Home button took 1147 ms with 1.0.0 and 1051 ms with 1.1.0: the same within the
+noise. Both are higher than in the table above because on Fire OS the Home button depends on how long
+Amazon's launcher takes to draw, which varies with the state of the device (see below).
+
+## Android TV
+
+The same APK, measured on 2026-10-18 on a Hyundai AI PONT CO television (Android TV 14, interface at
+1280×720), median of five runs. "Stock" is Google's launcher (`com.google.android.tvlauncher`); for
+FeatherTV it was disabled with `install.ps1 -ReplaceStock`, so it doesn't stay in memory.
+
+| | Stock launcher | FeatherTV 1.1.0 |
+|---|---|---|
+| APK size | 13.3 MB | **46 KB** |
+| Idle memory, excluding graphics | 67 MB | **32 MB** |
+| Idle memory, total | 88 MB | **38 MB** |
+| Back to the home screen from an app (`am start -W`) | 244 ms | **126 ms** |
+| Slow frames while moving through the apps | 2.6 % (p90 27 ms, p99 300 ms) | **0.6 %** (p90 10 ms, p99 21 ms) |
+| Home button, from the press to in front | 169 ms | **128 ms** |
+| Cold start | 6588 ms | **602 ms** |
+
+Here Home goes straight to FeatherTV, without Fire OS's detour through Amazon's launcher. Android 10
+and later no longer log injected keys, so the Home button is timed from the device clock right
+before the key command: both columns include a few tens of milliseconds of the command's own startup,
+and the row can't be compared with the Fire OS table.
+
 ## What was optimized
 
 - **Glow**: it used to be a full-screen gradient recalculated on every frame (14 % slow frames).

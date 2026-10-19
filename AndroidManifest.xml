@@ -25,6 +25,14 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
             </intent-filter>
+            <!-- Home screen candidate. On Android TV / Google TV this is how Home opens FeatherTV.
+                 On Fire OS it changes nothing: Amazon's launcher keeps its system priority and the
+                 Home button still goes to it, so Guard is what takes over there. -->
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.HOME" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
         </activity>
 
         <activity

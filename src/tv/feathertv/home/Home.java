@@ -208,8 +208,12 @@ public final class Home extends Activity {
     @Override
     protected void onNewIntent(Intent intent) {
         super.onNewIntent(intent);
-        // Home pressed while already on the home screen: go back to the first app.
-        if (intent.getBooleanExtra(Guard.EXTRA_RESET, false) && row.getChildCount() > 0) {
+        // Home pressed while already on the home screen: go back to the first app. On Fire OS that
+        // arrives through Guard (EXTRA_RESET); on Android TV, where FeatherTV is the real home
+        // screen, as a HOME intent right after Android paused this activity to deliver it.
+        boolean reset = intent.getBooleanExtra(Guard.EXTRA_RESET, false)
+                || (intent.hasCategory(Intent.CATEGORY_HOME) && wasFrontJustNow());
+        if (reset && row.getChildCount() > 0) {
             scroller.smoothScrollTo(0, 0);
             row.getChildAt(0).requestFocus();
         }
@@ -221,9 +225,13 @@ public final class Home extends Activity {
         return resumed;
     }
 
-    /** True if the home screen was in front a moment ago (Home was pressed on it). */
+    /**
+     * True if the home screen was in front a moment ago (Home was pressed on it). The window is
+     * 5 s because, right after a restart, Amazon's launcher can take 2-3 s to appear before Guard
+     * reacts; opening an app from FeatherTV sets leftForApp, so that case never counts.
+     */
     static boolean wasFrontJustNow() {
-        return !leftForApp && pausedAt >= 0 && SystemClock.uptimeMillis() - pausedAt < 1500;
+        return !leftForApp && pausedAt >= 0 && SystemClock.uptimeMillis() - pausedAt < 5000;
     }
 
     @Override

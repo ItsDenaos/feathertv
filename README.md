@@ -3,7 +3,8 @@
 A lightweight launcher for Fire TV (Fire OS 5–8) and Android TV, with a "Stage" design inspired
 by Apple TV. Plain Java, no libraries, no Gradle and **no permissions** (not even internet).
 
-**Version 1.0.0** · 46 KB APK · 6 languages · tested on a Fire TV Stick Lite running Fire OS 7.7.1.7.
+**Version 1.1.0** · 46 KB APK · 6 languages · tested on a Fire TV Stick Lite running Fire OS 7.7.1.7
+and on an Android TV 14 television.
 
 | | |
 |---|---|
@@ -16,13 +17,17 @@ by Apple TV. Plain Java, no libraries, no Gradle and **no permissions** (not eve
 
 - A clean home screen: greeting and time, the FeatherTV button next to Settings, the focused app's
   name in large type over a glow in that app's color, and a row with your apps.
-- Replaces Amazon's home screen when you press Home and at startup, with no ads or recommendations.
+- Replaces the stock home screen when you press Home and at startup, with no ads or recommendations.
 - Fully driven by the remote: move, hide and rename apps, plus an Options screen.
 - English, Spanish, Portuguese, French, Italian and German.
+- One APK for Fire TV and for Android TV / Google TV: the installer detects which one it's on.
 
-## Installing on a Fire TV (Windows)
+## Installing (Windows)
 
-1. Turn on **ADB debugging** on the Fire TV (My Fire TV → Developer options) and note its IP address.
+1. Turn on ADB on the TV and note its IP address:
+   - **Fire TV**: My Fire TV → Developer options → **ADB debugging**.
+   - **Android TV / Google TV**: tap the build number 7 times (Device Preferences → About on
+     Android TV, System → About on Google TV), then turn on **USB debugging** in Developer options.
 2. Build the APK (see below) or use an existing `build/feathertv.apk`.
 3. Run:
 
@@ -30,21 +35,28 @@ by Apple TV. Plain Java, no libraries, no Gradle and **no permissions** (not eve
 powershell -ExecutionPolicy Bypass -File tools\install.ps1 -Device 192.168.1.50:5555
 ```
 
-The installer installs the APK, exempts it from battery optimization, sets `min_futurity=0` in
-`alarm_manager_constants` and enables the **Guard** accessibility service, disabling the
-accessibility services of any other launcher installed on the device so they don't compete. It saves
-the previous setup in `.ftv-state/` so it can be undone.
+- **On Fire TV**, the installer exempts FeatherTV from battery optimization, sets `min_futurity=0`
+  in `alarm_manager_constants` and enables the **Guard** accessibility service, disabling the
+  accessibility services of any other launcher installed on the device so they don't compete.
+- **On Android TV / Google TV**, it sets FeatherTV as the preferred home screen and checks which app
+  Home really opens. Some builds, Google TV in particular, keep their own launcher; in that case run
+  it again with `-ReplaceStock`, which disables (`pm disable-user`) only the app that still takes the
+  home role.
+
+Everything it changes is saved in `.ftv-state/<model>-<serial>/`, one folder per device, so it can be
+undone.
 
 | To… | Command |
 |---|---|
-| Go back to the previous launcher (or Amazon's) | `tools\install.ps1 -Device … -Undo` |
+| Go back to the previous home screen | `tools\install.ps1 -Device … -Undo` |
 | Only re-link the Home button | `tools\install.ps1 -Device … -NoInstall` |
+| Replace a stock launcher that won't step aside (Android TV) | `tools\install.ps1 -Device … -ReplaceStock` |
 | Uninstall FeatherTV (after `-Undo`) | `adb uninstall tv.feathertv.home` |
 
 ## Using the remote
 
 - **← →** move through your apps; **↓** from the top bar goes back to the row.
-- **↑** goes to **Settings** (the Fire TV's own); from there **←** moves to **FeatherTV**, which opens
+- **↑** goes to **Settings** (the TV's own); from there **←** moves to **FeatherTV**, which opens
   FeatherTV's options.
 - **Home** while on FeatherTV jumps back to the first app.
 - **☰ or a long press on OK over an app**: Move, Hide, Rename, App info (uninstall, clear cache…)
@@ -58,6 +70,12 @@ The configuration lives in `/sdcard/Android/data/tv.feathertv.home/files/feather
 be edited from a computer with `adb push` (see the [sample](tools/feather.conf.example)).
 
 ## How it takes over the Home button
+
+On **Android TV / Google TV** there's nothing special: FeatherTV declares itself a home screen and
+the installer makes it the default, so Home opens it directly. Guard stays idle there, because it
+only reacts to Amazon's launcher.
+
+On **Fire OS** it takes more work:
 
 - Fire OS doesn't let you intercept Home or choose another launcher. **Guard** only receives
   window-change events from Amazon's launcher (it never reads the screen) and reacts only to its
