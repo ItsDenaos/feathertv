@@ -10,6 +10,7 @@ import android.content.IntentFilter;
 import android.content.pm.PackageManager;
 import android.content.res.Configuration;
 import android.graphics.Color;
+import android.graphics.PixelFormat;
 import android.graphics.Typeface;
 import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.Drawable;
@@ -18,6 +19,7 @@ import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
+import android.os.Process;
 import android.os.SystemClock;
 import android.provider.Settings;
 import android.text.TextUtils;
@@ -37,6 +39,7 @@ import android.widget.Toast;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Calendar;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
@@ -47,7 +50,15 @@ import java.util.concurrent.Executors;
 
 /** FeatherTV's home screen ("Stage" design, see docs/DESIGN.md). */
 public final class Home extends Activity {
-    private static final ExecutorService BG = Executors.newSingleThreadExecutor();
+    /**
+     * Loads the apps at nice 5: below the interface's threads (0, and -10 while in front), so it
+     * never takes CPU from a frame being drawn, but outside Android's background group, which can
+     * starve a thread while the system is starting up.
+     */
+    private static final ExecutorService BG = Executors.newSingleThreadExecutor(r -> new Thread(() -> {
+        Process.setThreadPriority(5);
+        r.run();
+    }, "FeatherTV-catalog"));
     private static final String LEANBACK_SETTINGS = "android.intent.category.LEANBACK_SETTINGS";
     private static final boolean FIRE_OS = "Amazon".equalsIgnoreCase(Build.MANUFACTURER);
 
@@ -68,6 +79,8 @@ public final class Home extends Activity {
     private LinearLayout row;
     private Panel panel;
     private String focusedPkg;
+    /** The apps on screen, by package: the next load reuses the art of the ones that didn't change. */
+    private Map<String, App> known = new HashMap<>();
     private int generation;
     private int screenW;
     private int screenH;
@@ -126,6 +139,10 @@ public final class Home extends Activity {
         screenW = Math.max(m.widthPixels, m.heightPixels);
         screenH = Math.min(m.widthPixels, m.heightPixels);
         tileFraction = config.tileFraction();
+        // Without a window background Android makes the window translucent. The stage (or the
+        // black background) covers every pixel, so it's declared opaque: SurfaceFlinger then
+        // doesn't blend it and skips whatever is underneath, such as Amazon's launcher.
+        getWindow().setFormat(PixelFormat.OPAQUE);
         setContentView(buildLayout());
         applyLook();
 
@@ -393,6 +410,8 @@ public final class Home extends Activity {
     private void showApps(List<App> apps) {
         boolean first = row.getChildCount() == 0;
         boolean appHadFocus = row.hasFocus();
+        known = new HashMap<>();
+        for (App a : apps) known.put(a.pkg, a);
         row.removeAllViews();
         float radius = screenH * 0.015f, ring = ringWidth();
         for (int i = 0; i < apps.size(); i++) {
@@ -477,14 +496,16 @@ public final class Home extends Activity {
                 timeFormat = DateFormat.getTimeFormat(this);
             }
         }
-        greeting.setText(getString(g) + "  ·  " + timeFormat.format(now.getTime()));
+        String text = getString(g) + "  ·  " + timeFormat.format(now.getTime());
+        // Same text (coming back within the same minute): setText would lay out the whole screen again.
+        if (!text.contentEquals(greeting.getText())) greeting.setText(text);
     }
 
     private void updateHint() {
         if (moving != null) {
             hint.setText(R.string.move_hint);
             hint.setVisibility(View.VISIBLE);
-        } else if (FIRE_OS && !Guard.isEnabled(this)) {
+        } else if (FIRE_OS && !Guard.isConnected() && !Guard.isEnabled(this)) {
             hint.setText(R.string.guard_off);
             hint.setVisibility(View.VISIBLE);
         } else {
@@ -628,28 +649,42 @@ public final class Home extends Activity {
         final Set<String> hide = new HashSet<>(config.list("apps.hide"));
         final Set<String> show = new HashSet<>(config.list("apps.show"));
         final Map<String, String> names = config.prefixed("name.");
+        final Map<String, App> previous = new HashMap<>(known);
         final Context app = getApplicationContext();
         final int gen = ++generation, w = tileWidth(), h = tileHeight();
         BG.execute(() -> {
-            final List<App> apps = Catalog.load(app, order, hide, show, names, w, h);
+            final List<App> apps = Catalog.load(app, order, hide, show, names, w, h, previous);
             ui.post(() -> {
                 if (gen == generation && !isDestroyed() && moving == null) showApps(apps);
             });
         });
     }
 
+    /**
+     * Opens the activity found when loading the apps, the same one the system's launch intent would
+     * name, without asking the package manager when OK is pressed. If it no longer exists (the app
+     * was just updated), asks it after all.
+     */
     private void launch(App a) {
-        PackageManager pm = getPackageManager();
-        Intent i = pm.getLeanbackLaunchIntentForPackage(a.pkg);
-        if (i == null) i = pm.getLaunchIntentForPackage(a.pkg);
-        if (i == null) i = new Intent(Intent.ACTION_MAIN).setComponent(a.component);
-        i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED);
+        Intent i = new Intent(Intent.ACTION_MAIN).setComponent(a.component)
+                .addCategory(a.leanback ? Intent.CATEGORY_LEANBACK_LAUNCHER : Intent.CATEGORY_LAUNCHER);
         leftForApp = true;
-        try {
-            startActivity(i);
-        } catch (RuntimeException e) {
+        if (start(i)) return;
+        PackageManager pm = getPackageManager();
+        i = pm.getLeanbackLaunchIntentForPackage(a.pkg);
+        if (i == null) i = pm.getLaunchIntentForPackage(a.pkg);
+        if (i == null || !start(i)) {
             leftForApp = false;
             Toast.makeText(this, getString(R.string.launch_failed, a.label), Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    private boolean start(Intent i) {
+        try {
+            startActivity(i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED));
+            return true;
+        } catch (RuntimeException e) {
+            return false;
         }
     }
 

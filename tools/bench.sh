@@ -3,8 +3,11 @@
 #
 # Usage: tools/bench.sh <package/.Activity> [runs=5] [--cold]
 #   Warm start      am start -W from another app (TotalTime)
-#   Home button     ms from the key press until the launcher is in front (only when Home opens
-#                   that launcher: on Fire OS, when its accessibility service is active)
+#   Home button     ms from the key press until the launcher's first frame is on screen
+#                   (SurfaceFlinger) and until it is in front (resumed). Only when Home opens that
+#                   launcher: on Fire OS, when its accessibility service is active. The key is
+#                   pressed on a virtual remote (uhid) when the device allows it, which takes the
+#                   same path as a real remote; otherwise it is injected with input keyevent.
 #   Smoothness      slow frames while moving along the row (dumpsys gfxinfo)
 #   Idle memory     total PSS and PSS excluding graphics (screen buffers depend on the system)
 #   --cold          cold start (force-stop). Fire OS disables a force-stopped app's accessibility
@@ -37,29 +40,90 @@ sh pm path "$PKG" >/dev/null || { echo "$PKG is not installed" >&2; exit 1; }
 echo "== $COMP"
 echo "APK:           $(sh stat -c %s "$(sh pm path "$PKG" | head -1 | cut -d: -f2)") bytes"
 
-warm=(); home=()
+# Virtual remote: a consumer-control HID device whose only key is Home (AC Home, KEY_HOMEPAGE),
+# fed through a pipe so it stays registered for the whole run (adding an input device makes the
+# app in front reload, which would disturb the measurements).
+R=/data/local/tmp/ftv-remote
+remote_start() {
+  sh "command -v hid" >/dev/null 2>&1 || return 0
+  a shell "cat > $R-register.json" <<'EOF'
+{"id": 7, "command": "register", "name": "FeatherTV bench remote", "vid": 6353, "pid": 32343,
+ "descriptor": [5, 12, 9, 1, 161, 1, 133, 1, 21, 0, 38, 255, 3, 25, 0, 42, 255, 3, 117, 16, 149, 1, 129, 0, 192]}
+EOF
+  a shell "echo '{\"id\": 7, \"command\": \"report\", \"report\": [1, 35, 2]}' > $R-down.json"
+  a shell "echo '{\"id\": 7, \"command\": \"report\", \"report\": [1, 0, 0]}' > $R-up.json"
+  sh "rm -f $R; mkfifo $R; (sleep 100000 > $R &); (hid $R > /dev/null 2>&1 &); cat $R-register.json > $R; sleep 2;
+      getevent -pl 2>/dev/null | grep -B1 'FeatherTV bench remote' | sed -n '1s/.*: //p' > $R.dev" >/dev/null
+  if [ -n "$(sh cat $R.dev 2>/dev/null || true)" ]; then REMOTE=1; fi
+}
+remote_stop() {
+  sh "pkill -f com.android.commands.hid; pkill -f 'sleep 100000'; rm -f $R $R.dev $R.key" >/dev/null 2>&1 || true
+}
+REMOTE=
+trap remote_stop EXIT
+remote_start
+
+# Presses Home; prints the monotonic time of the key press (empty: read it from the log).
+press_home() {
+  if [ -n "$REMOTE" ]; then
+    sh "(getevent -lt -c 3 \$(cat $R.dev) > $R.key &); sleep 0.3; cat $R-down.json > $R; sleep 0.09;
+        cat $R-up.json > $R; sleep 0.3; cat $R.key" |
+      awk '/KEY_HOMEPAGE/ && /DOWN/ && !f {match($0, /[0-9]+\.[0-9]+/); print substr($0, RSTART, RLENGTH); f=1}'
+  else
+    # Android 10+ no longer logs injected keys: a log line right before the key marks the time.
+    # It also counts the start of the input command (tens of ms), the same for every launcher.
+    sh 'log -t FtvBench home; input keyevent KEYCODE_HOME' >/dev/null
+  fi
+}
+
+# Monotonic time of the first frame the launcher put on screen after $1, from SurfaceFlinger's
+# frame history of every layer of the package (on Fire OS, Guard's curtain lifts a frame or two
+# after FeatherTV's first frame).
+first_frame() {
+  local best= f layer
+  while IFS= read -r layer; do
+    [ -n "$layer" ] || continue
+    # </dev/null: otherwise adb would read the rest of the layer list as its input.
+    f=$(sh dumpsys SurfaceFlinger --latency "'$layer'" </dev/null |
+      awk -v t="$1" 'NR > 1 && $2 > 0 && $2 < 9e18 && $2 / 1e9 > t && !f {printf "%.6f\n", $2 / 1e9; f=1}')
+    if [ -n "$f" ] && { [ -z "$best" ] || awk -v a="$f" -v b="$best" 'BEGIN {exit !(a < b)}'; }; then best=$f; fi
+  done <<< "$(sh dumpsys SurfaceFlinger --list | grep -F "$PKG/" || true)"
+  echo "$best"
+}
+
+ms() { awk -v a="$1" -v b="$2" 'BEGIN {printf "%.0f", (b - a) * 1000}'; }
+
+warm=(); front=(); shown=()
 for i in $(seq "$N"); do
   open_test_app
   warm+=("$(sh am start -W -n "$COMP" | awk -F': ' '/TotalTime/ {print $2}')")
   open_test_app
   sh logcat -b main -b system -b events -c
-  # The device clock right before the key, for Android 10+, which no longer logs injected keys.
-  # It also counts the start of the input command (tens of ms), the same for every launcher.
-  t_mark=$(sh 'date +%s.%N; input keyevent KEYCODE_HOME' | sed -n 1p)
-  sleep 4
-  # From the moment the Home key is injected until the launcher is in front
-  # (am_/wm_set_resumed_activity in the events log). The awk scripts never stop reading early:
-  # with pipefail, an early "exit" would break the pipe and stop the script.
-  log=$(sh logcat -b main -b system -b events -d -v epoch)
-  t_key=$(printf '%s\n' "$log" | awk '!f && /injectKeyEvent/ && /ACTION_DOWN/ && /KEYCODE_HOME/ {print $1; f=1}')
-  [ -n "$t_key" ] || t_key=$t_mark
-  t_pkg=$(printf '%s\n' "$log" | awk -v p="$PKG/" '!f && /[aw]m_set_resumed_activity/ && index($0, p) {print $1; f=1}')
-  if [ -n "$t_key" ] && [ -n "$t_pkg" ]; then
-    home+=("$(awk -v a="$t_key" -v b="$t_pkg" 'BEGIN {printf "%.0f", (b - a) * 1000}')")
-  fi
+  sh dumpsys SurfaceFlinger --latency-clear >/dev/null
+  t_key=$(press_home)
+  # SurfaceFlinger keeps the last 128 frames per layer: read them before an animated launcher
+  # (Amazon's or Google's) pushes the first ones out.
+  sleep 2.5
+  log=$(sh logcat -b main -b system -b events -d -v monotonic)
+  # Without the virtual remote: the injected key's own log line if there is one (on Android 9 the
+  # input command alone takes about a second to start), otherwise the mark. The awk scripts never
+  # stop reading early: with pipefail, an early "exit" would break the pipe and stop the script.
+  [ -n "$t_key" ] || t_key=$(printf '%s\n' "$log" | awk '
+    !k && /injectKeyEvent/ && /ACTION_DOWN/ && /KEYCODE_HOME/ {k = $1}
+    !m && / FtvBench/ {m = $1}
+    END {print k ? k : m}')
+  t_front=$(printf '%s\n' "$log" | awk -v p="$PKG/" '!f && /[aw]m_set_resumed_activity/ && index($0, p) {print $1; f=1}')
+  t_shown=$([ -n "$t_key" ] && first_frame "$t_key" || true)
+  [ -n "$t_key" ] && [ -n "$t_front" ] && front+=("$(ms "$t_key" "$t_front")")
+  [ -n "$t_key" ] && [ -n "$t_shown" ] && shown+=("$(ms "$t_key" "$t_shown")")
+  sleep 1.5
 done
 echo "Warm start:    $(median "${warm[@]}") ms   (${warm[*]})"
-echo "Home button:   $(median "${home[@]:-}") ms   (${home[*]:-no data: Home does not open this launcher})"
+if [ ${#front[@]} -eq 0 ]; then
+  echo "Home button:   no data: Home does not open this launcher"
+else
+  echo "Home button:   on screen $(median "${shown[@]:-}") ms, in front $(median "${front[@]}") ms   ($([ -n "$REMOTE" ] && echo "virtual remote" || echo "input keyevent"); on screen: ${shown[*]:-no data}; in front: ${front[*]})"
+fi
 
 # Smoothness: along the row and back with the launcher in front.
 sh am start -W -n "$COMP" >/dev/null; sleep 3

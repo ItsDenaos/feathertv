@@ -77,7 +77,9 @@ only reacts to Amazon's launcher.
 
 On **Fire OS** it takes more work:
 
-- Fire OS doesn't let you intercept Home or choose another launcher. **Guard** only receives
+- Fire OS doesn't let you intercept Home or choose another launcher. Not even an accessibility key
+  filter sees Home: Amazon's key policy handles it first (Back and the D-pad do reach the filter),
+  and the `HOME_PRESSED` broadcast it sends is reserved for Amazon's apps. **Guard** only receives
   window-change events from Amazon's launcher (it never reads the screen) and reacts only to its
   main screen (`HomeActivity`), so Alexa searches and other windows are left alone.
 - When that screen appears, Guard shows a **black curtain** (an accessibility window created in
@@ -87,7 +89,7 @@ On **Fire OS** it takes more work:
   launcher to finish pausing (that wait cost about 400 ms on every press).
 - The `CLOSE_SYSTEM_DIALOGS` broadcast (`reason=homekey`) would arrive before Amazon's window, but
   Fire OS 7 doesn't deliver it to non-system apps (it shows up as *Skipped*).
-- The curtain fades out once FeatherTV is on screen, or by itself after 2.5 s if something fails.
+- The curtain lifts as soon as FeatherTV is on screen, or by itself after 2.5 s if something fails.
 - If the service gets disabled (for example after "Force stop"), FeatherTV shows a notice asking
   you to run the installer again with `-NoInstall`.
 
@@ -122,5 +124,7 @@ have to uninstall first). The `keys/` folder is not committed.
 FTV_DEVICE=192.168.1.50:5555 tools/bench.sh tv.feathertv.home/.Home 5 --cold
 ```
 
-Reports medians for warm start, the Home button, smoothness (slow frames), idle memory and cold
-start. Reference results are in [docs/PERFORMANCE.md](docs/PERFORMANCE.md).
+Reports medians for warm start, the Home button (until the launcher's first frame is on screen,
+from SurfaceFlinger, and until it is in front), smoothness (slow frames), idle memory and cold
+start. Home is pressed on a virtual remote (uhid) when the device allows it, which takes the same
+path as the real remote. Reference results are in [docs/PERFORMANCE.md](docs/PERFORMANCE.md).

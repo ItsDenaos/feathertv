@@ -12,7 +12,7 @@ median of five runs with [tools/bench.sh](../tools/bench.sh). "Fire OS" is Amazo
 | Back to the home screen from an app (`am start -W`) | 376 ms | **96 ms** |
 | Slow frames while moving through the apps | 39 % (p90 32 ms, p99 93 ms) | **6 %** (p90 14 ms) |
 | Same, with the "Pure black" background | — | **0 %** (p90 5 ms) |
-| Home button, from the press to on screen | **673 ms** (587–857) | 974 ms (831–1206) |
+| Home button, from the press until it is in front | **673 ms** (587–857) | 974 ms (831–1206) |
 | Cold start | not measured | 241 ms |
 
 The total memory includes the screen buffers that the system reserves, which vary between runs; the
@@ -47,12 +47,34 @@ and later no longer log injected keys, so the Home button is timed from the devi
 before the key command: both columns include a few tens of milliseconds of the command's own startup,
 and the row can't be compared with the Fire OS table.
 
+## Where the Home button's time goes on Fire OS
+
+Traced on 2026-10-18 with 1.1.0, pressing Home from Netflix on a virtual remote (the same path as
+the real remote; `input keyevent` takes another one), median of five presses:
+
+| Moment | ms after the press |
+|---|---|
+| Amazon's launcher starts (Fire OS acts when the key is released) | 158 |
+| Amazon's launcher is in front | 191 |
+| Amazon's launcher reports its window, and Guard reacts | 930 |
+| FeatherTV is in front | 1043 |
+| FeatherTV's first frame is on screen | 1461 |
+
+Most of the wait comes before FeatherTV can do anything: Guard only learns about Home when Amazon's
+launcher has built its screen. But FeatherTV then needs 400–600 ms to draw its first frame, against
+about 130 ms when it comes back without Amazon's launcher in the middle: both compete for the CPU and
+the GPU. Amazon's launcher already sends window-content events about 450 ms before it reports its
+window. Reacting to them brings FeatherTV to the front sooner, but it then draws while Amazon's
+launcher is at its busiest, and in a first test (four presses) it wasn't on screen any sooner.
+
 ## What was optimized
 
 - **Glow**: it used to be a full-screen gradient recalculated on every frame (14 % slow frames).
-  It is now painted once per color into a bitmap at a quarter of the resolution, a color change is a
-  200 ms cross-fade between two bitmaps, and it is drawn only in the area that has color; the rest of
-  the screen is a clear to black, which costs almost nothing on the GPU. Result: 14 % → 6 %.
+  Then it was painted once per color into a bitmap at a quarter of the resolution and cross-faded
+  (6 %). Now its shape is a single alpha mask at a quarter of the resolution, computed once, that
+  the GPU tints with the app's color: a color change is a 200 ms cross-fade that repaints and
+  uploads nothing. It is drawn only in the area that has color; the rest of the screen is a clear
+  to black, which costs almost nothing on the GPU.
 - **A single full-screen layer**: the window and the root view no longer paint black backgrounds that
   the glow covers anyway (that was three full-screen passes per frame, more than a Fire TV Stick's
   memory bandwidth can handle).
@@ -69,5 +91,9 @@ and the row can't be compared with the Fire OS table.
   button: it is the first thing the service can detect without permission to read the screen.
 - `CLOSE_SYSTEM_DIALOGS` (`reason=homekey`) would arrive immediately, but Fire OS skips it for
   non-system apps.
+- An accessibility key filter (`flagRequestFilterKeyEvents`) would let Guard catch Home before
+  Amazon's launcher even starts, but on Fire OS 7.7 Amazon's key policy handles Home before the
+  filter: Back and the D-pad reach it, Home doesn't. The `amazon.intent.action.HOME_PRESSED`
+  broadcast it sends goes only to Amazon's apps and requires a system permission.
 - The glow costs some GPU time during animations; for maximum smoothness, choose "Pure black" in
   Options.

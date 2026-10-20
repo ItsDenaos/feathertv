@@ -10,6 +10,7 @@ import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.drawable.Drawable;
+import android.os.Build;
 import android.text.TextPaint;
 import android.text.TextUtils;
 
@@ -32,12 +33,18 @@ final class Catalog {
 
     private Catalog() { }
 
+    /**
+     * @param known the apps loaded last time, by package: an app whose activity, APK, name and
+     *              tile size haven't changed keeps its art instead of being painted again (an
+     *              install, an update, a rename or a hidden app would otherwise repaint them all).
+     */
     static List<App> load(Context c, List<String> order, Set<String> hide, Set<String> show,
-                          Map<String, String> names, int tileW, int tileH) {
+                          Map<String, String> names, int tileW, int tileH, Map<String, App> known) {
         PackageManager pm = c.getPackageManager();
         Map<String, ResolveInfo> found = new LinkedHashMap<>();
         Intent tv = new Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LEANBACK_LAUNCHER);
         for (ResolveInfo ri : pm.queryIntentActivities(tv, 0)) add(found, ri, c, hide);
+        int tvCount = found.size();
         if (!show.isEmpty()) {
             // Phone apps (without a TV banner) that the user asked to show.
             Intent phone = new Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER);
@@ -47,14 +54,26 @@ final class Catalog {
         }
 
         List<App> apps = new ArrayList<>(found.size());
+        int i = 0;
         for (ResolveInfo ri : found.values()) {
+            boolean leanback = i++ < tvCount;
             String pkg = ri.activityInfo.packageName;
             String label = names.get(pkg);
             if (label == null) label = String.valueOf(ri.loadLabel(pm));
+            // The APK's path changes with every update.
+            String key = ri.activityInfo.name + '|' + ri.activityInfo.applicationInfo.sourceDir + '|'
+                    + label + '|' + tileW + 'x' + tileH;
+            App old = known.get(pkg);
+            if (old != null && old.key.equals(key)) {
+                apps.add(old);
+                continue;
+            }
             Drawable banner = ri.activityInfo.loadBanner(pm);
             Bitmap art = banner != null ? paintBanner(banner, tileW, tileH)
                     : paintIcon(ri.loadIcon(pm), label, tileW, tileH);
-            apps.add(new App(pkg, new ComponentName(pkg, ri.activityInfo.name), label, art, dominantColor(art)));
+            int color = dominantColor(art);
+            apps.add(new App(pkg, new ComponentName(pkg, ri.activityInfo.name), leanback, label,
+                    toGpu(art), color, key));
         }
         return sort(apps, order);
     }
@@ -107,6 +126,23 @@ final class Catalog {
         CharSequence shown = TextUtils.ellipsize(label, text, w * 0.9f, TextUtils.TruncateAt.END);
         c.drawText(shown, 0, shown.length(), w / 2f, h * 0.88f, text);
         return bmp;
+    }
+
+    /**
+     * Android 9 and later: moves the art to graphics memory once, here in the background. Otherwise
+     * every return to the home screen uploads it to the GPU again (Android frees the textures of a
+     * window that is no longer visible), and so does the first scroll over each tile.
+     */
+    private static Bitmap toGpu(Bitmap art) {
+        if (Build.VERSION.SDK_INT < 28) return art;
+        try {
+            Bitmap hw = art.copy(Bitmap.Config.HARDWARE, false);
+            if (hw == null) return art;
+            art.recycle();
+            return hw;
+        } catch (RuntimeException e) {
+            return art; // Some devices refuse it: the art stays in normal memory.
+        }
     }
 
     /**
