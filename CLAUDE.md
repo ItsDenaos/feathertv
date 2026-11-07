@@ -22,9 +22,14 @@ comparison with the stock home screen in [docs/COMPARISON.md](docs/COMPARISON.md
   `%LOCALAPPDATA%\Android\platform-tools\adb.exe`, or set `ADB`.
 - **Copy `keys/` from the old PC** (`feathertv.jks`, `keystore.pass`); it isn't in git. Without the
   same key, a new build can't be installed over the one on the TVs (it would need an uninstall,
-  which also deletes the configuration).
+  which also deletes the configuration). It never goes in git; the user copies it by hand (the
+  second PC already has it since 2026-11-07).
 - Copy `.ftv-state/` too if `-Undo` should restore exactly what was there before FeatherTV: it holds
   the installer's state per device (`<model>-<serial>/`).
+- Optional: copy the old PC's `%USERPROFILE%\.android\adbkey` and `adbkey.pub`, so the TVs accept the
+  new PC without asking. Otherwise each TV asks once to allow USB debugging; accept with the remote.
+- On 2026-11-07 the old PC left `build/traspaso/feathertv-traspaso.zip` with `.ftv-state/`, the web
+  project and a `LEEME.txt` with these steps in Spanish.
 - Windows quirks seen on the old PC:
   - PowerShell 5.1 runs in constrained language mode: no .NET type calls (`[System...]::`).
   - Git Bash: device paths (`/data/...`, `/sdcard/...`) need `MSYS_NO_PATHCONV=1`, but `build.sh`
@@ -57,10 +62,11 @@ powershell -ExecutionPolicy Bypass -File tools\install.ps1 -Device 192.168.68.10
 
 The version lives in `build.sh` (`VERSION_CODE`, `VERSION_NAME`); bumping it is the user's call.
 
-## Where things stand (2026-10-20)
+## Where things stand (2026-11-07)
 
-- `main`: 1.0.0 (`ef9c581`). Branch `android-tv`: 1.1.0 committed (`132db22`), not merged yet.
-- **Uncommitted on `android-tv`, compiled but not yet measured on a TV** (the TVs were off):
+- `main` (GitHub `ItsDenaos/feathertv`): 1.1.0 (`132db22`). Branch `android-tv`: 1.1.0 plus the
+  work below (`e5e59e4`), pushed. When it's measured and kept, `main` can be fast-forwarded to it.
+- **On `android-tv` (`e5e59e4`), compiled but not yet measured on a TV** (the TVs were off):
   - `Stage`: the glow is one alpha mask computed once and tinted by the GPU, with an additive
     cross-fade (it used to repaint and upload a bitmap on every focus change). Checked offline: at
     most 1–2 levels out of 255 from the old one.
@@ -124,7 +130,7 @@ The version lives in `build.sh` (`VERSION_CODE`, `VERSION_NAME`); bumping it is 
 ## Web page (separate project)
 
 `C:\Proyectos\feathertv-web` is not part of this repo (git repo without commits yet, Spanish). It
-isn't on the other PC unless it's copied or pushed separately. It's published as a private artifact,
+isn't on the other PC unless it's copied (it's in the transfer zip) or pushed separately. It's published as a private artifact,
 <https://claude.ai/artifact/LBm8KeueLjwA7KwmUYPfHF>; from another conversation, republish by passing
 that URL. Its README explains the screenshots, the artifact build (`build/feathertv.html`) and where
 the numbers come from.
