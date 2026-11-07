@@ -6,6 +6,7 @@ import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
 import android.content.res.Configuration;
 import android.graphics.Color;
+import android.graphics.PixelFormat;
 import android.graphics.Typeface;
 import android.os.Bundle;
 import android.text.TextUtils;
@@ -59,8 +60,10 @@ public final class Options extends Activity {
         screenH = Math.min(m.widthPixels, m.heightPixels);
         text = screenH * 0.034f;
 
-        // No background on the window or the view: the stage is opaque and covers the screen.
+        // No background on the window or the view: the stage is opaque and covers the screen
+        // (see Home.onCreate for why the window is declared opaque).
         getWindow().setBackgroundDrawable(null);
+        getWindow().setFormat(PixelFormat.OPAQUE);
         FrameLayout root = new FrameLayout(this);
         Stage stage = new Stage(this);
         stage.setColor(BRAND, false);

@@ -113,6 +113,11 @@ public final class Guard extends AccessibilityService {
         if (g != null) g.liftCurtain();
     }
 
+    /** True while the service is running (cheaper than reading the settings). */
+    static boolean isConnected() {
+        return instance != null;
+    }
+
     /** True if the service is enabled in the accessibility settings. */
     static boolean isEnabled(Context c) {
         String list = Settings.Secure.getString(c.getContentResolver(),
@@ -133,18 +138,18 @@ public final class Guard extends AccessibilityService {
 
     private void dropCurtain() {
         if (curtain == null) return;
-        curtain.animate().cancel();
-        curtain.setAlpha(1f);
         curtain.setVisibility(View.VISIBLE);
         // If FeatherTV never opens, the curtain lifts by itself.
         ui.removeCallbacks(lift);
         ui.postDelayed(lift, CURTAIN_TIMEOUT_MS);
     }
 
+    /**
+     * Lifts at once: FeatherTV is already drawn underneath. A fade wouldn't show anyway, because the
+     * curtain's window is opaque: it used to stay solid black for the 120 ms of the "fade".
+     */
     private void liftCurtain() {
         ui.removeCallbacks(lift);
-        final View c = curtain;
-        if (c == null || c.getVisibility() != View.VISIBLE) return;
-        c.animate().alpha(0f).setDuration(120).withEndAction(() -> c.setVisibility(View.GONE)).start();
+        if (curtain != null) curtain.setVisibility(View.GONE);
     }
 }
