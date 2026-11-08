@@ -32,11 +32,16 @@ public final class Guard extends AccessibilityService {
     private static final String AMAZON_HOME = "com.amazon.tv.launcher.ui.HomeActivity";
     static final String EXTRA_RESET = "tv.feathertv.home.RESET";
     private static final long CURTAIN_TIMEOUT_MS = 2500;
+    private static final long CONTENT_INTERVAL_MS = 1500;
 
     private static Guard instance;
 
     private final Handler ui = new Handler(Looper.getMainLooper());
     private final Runnable lift = this::liftCurtain;
+    /** Whether the last Amazon window that came up was its home screen. */
+    private boolean amazonHome = true;
+    /** When FeatherTV was last brought to the front. */
+    private long broughtAt = -CONTENT_INTERVAL_MS;
     private View curtain;
     private PendingIntent openHome;
     private PendingIntent openHomeReset;
@@ -69,11 +74,25 @@ public final class Guard extends AccessibilityService {
 
     @Override
     public void onAccessibilityEvent(AccessibilityEvent e) {
-        if (e.getEventType() != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) return;
-        CharSequence cls = e.getClassName();
-        if (cls == null || !cls.toString().startsWith(AMAZON_HOME)) return;
+        switch (e.getEventType()) {
+            case AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED:
+                CharSequence cls = e.getClassName();
+                amazonHome = cls != null && cls.toString().startsWith(AMAZON_HOME);
+                break;
+            case AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED:
+                // Android only sends these while the activity is started, so after Home the first
+                // one arrives while Amazon is still building its screen, about 0.45 s before it
+                // reports the window. They keep coming, so only the first one in a while counts.
+                if (SystemClock.uptimeMillis() - broughtAt < CONTENT_INTERVAL_MS) return;
+                break;
+            default:
+                return;
+        }
+        // The last Amazon window wasn't its home screen (an Alexa search, a dialog...): leave it.
+        if (!amazonHome) return;
         // Amazon sometimes reports again when FeatherTV is already in front: nothing to do.
         if (Home.isFront()) return;
+        broughtAt = SystemClock.uptimeMillis();
         bringHome(Home.wasFrontJustNow());
     }
 

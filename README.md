@@ -3,7 +3,7 @@
 A lightweight launcher for Fire TV (Fire OS 5–8) and Android TV, with a "Stage" design inspired
 by Apple TV. Plain Java, no libraries, no Gradle and **no permissions** (not even internet).
 
-**Version 1.1.0** · 46 KB APK · 6 languages · tested on a Fire TV Stick Lite running Fire OS 7.7.1.7
+**Version 1.2.0** · 49 KB APK · 6 languages · tested on a Fire TV Stick Lite running Fire OS 7.7.1.7
 and on an Android TV 14 television.
 
 | | |
@@ -19,6 +19,8 @@ and on an Android TV 14 television.
   name in large type over a glow in that app's color, and a row with your apps.
 - Replaces the stock home screen when you press Home and at startup, with no ads or recommendations.
 - Fully driven by the remote: move, hide and rename apps, plus an Options screen.
+- On TVs with inputs (Android TV / Google TV televisions), an **Inputs** button switches to HDMI 1,
+  2, 3, AV…, which the stock home screen used to give access to. It doesn't appear on a stick.
 - English, Spanish, Portuguese, French, Italian and German.
 - One APK for Fire TV and for Android TV / Google TV: the installer detects which one it's on.
 
@@ -56,8 +58,11 @@ undone.
 ## Using the remote
 
 - **← →** move through your apps; **↓** from the top bar goes back to the row.
-- **↑** goes to **Settings** (the TV's own); from there **←** moves to **FeatherTV**, which opens
-  FeatherTV's options.
+- **↑** goes to **Settings** (the TV's own); from there **←** moves to **Inputs** (on TVs that have
+  them) and then to **FeatherTV**, which opens FeatherTV's options.
+- **Inputs** lists the TV's inputs with the names set in the TV's settings, the device connected by
+  HDMI-CEC when there is one, and "nothing connected" on the empty ones; OK switches to it. Home
+  comes back to FeatherTV.
 - **Home** while on FeatherTV jumps back to the first app.
 - **☰ or a long press on OK over an app**: Move, Hide, Rename, App info (uninstall, clear cache…)
   and FeatherTV options.
@@ -82,6 +87,9 @@ On **Fire OS** it takes more work:
   and the `HOME_PRESSED` broadcast it sends is reserved for Amazon's apps. **Guard** only receives
   window-change events from Amazon's launcher (it never reads the screen) and reacts only to its
   main screen (`HomeActivity`), so Alexa searches and other windows are left alone.
+- Guard reacts to the first content change of that screen, about 0.45 s before Amazon reports the
+  window itself, while Amazon is still building it: FeatherTV is on screen about half a second
+  sooner (see [PERFORMANCE.md](docs/PERFORMANCE.md)).
 - When that screen appears, Guard shows a **black curtain** (an accessibility window created in
   advance) and opens FeatherTV with an **immediate alarm**: Android delays app launches by 5 s after
   Home is pressed, except launches started by the system. This needs `min_futurity=0`.

@@ -2,6 +2,8 @@
 <resources>
     <string name="app_name" translatable="false">FeatherTV</string>
     <string name="settings">Settings</string>
+    <string name="inputs">Inputs</string>
+    <string name="input_unplugged">%1$s (nothing connected)</string>
     <string name="good_morning">Good morning</string>
     <string name="good_afternoon">Good afternoon</string>
     <string name="good_evening">Good evening</string>

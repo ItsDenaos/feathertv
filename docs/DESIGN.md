@@ -14,8 +14,9 @@ the screen's width or height so it looks the same at 720p and 4K.
 3. **Top bar** (at 6–7 % of the height):
    - Left: a greeting for the time of day plus the current time. About 18 sp, white at 70 %.
    - Right: a **FeatherTV** button (feather and name; opens FeatherTV's options) · a thin vertical
-     divider · a **Settings** button (the Fire TV's own). Both are pills: without focus, text at
-     70 %; with focus, filled with the focus color and contrasting text.
+     divider · the TV's own: an **Inputs** button (only on TVs with inputs; opens a panel like the
+     app menu with HDMI 1, 2, 3, AV…) and a **Settings** button. All are pills: without focus,
+     text at 70 %; with focus, filled with the focus color and contrasting text.
 4. **Title**: the focused app's name, at 28 % of the height, about 56 sp, medium weight.
 5. **App row** at 64 % of the height, with a 5 % left margin:
    - 16:9 tiles, 15 % of the width (12 % / 18 % for the small / large sizes), 2.2 % apart, with
@@ -29,8 +30,11 @@ the screen's width or height so it looks the same at 720p and 4K.
 
 ## Navigation
 
-- ← → move along the row. ↑ from the row goes to Settings; ← moves to FeatherTV and → back to
-  Settings; ↓ returns to the last focused tile.
+- ← → move along the row. ↑ from the row goes to Settings; ← moves to Inputs (when shown) and
+  then FeatherTV, → back towards Settings; ↓ returns to the last focused tile.
+- Inputs are listed HDMI first and then by name, with the TV's own labels (or the ones the user
+  set in the TV's settings) and the HDMI-CEC device's name next to its port. Choosing one opens
+  the system's TV app on that input (`TvContract.buildChannelUriForPassthroughInput`).
 - The FeatherTV brand was decorative in the approved mockup; it became the Options button because
   reaching Options only through ☰ wasn't intuitive.
 - The Back button on the home screen does nothing.

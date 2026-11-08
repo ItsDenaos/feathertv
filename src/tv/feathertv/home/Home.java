@@ -74,6 +74,9 @@ public final class Home extends Activity {
     private TextView title;
     private TextView settings;
     private TextView brand;
+    /** The TV's inputs button: only on TVs that have inputs (HDMI...). */
+    private TextView inputs;
+    private List<Inputs.Input> inputList = new ArrayList<>();
     private TextView hint;
     private Row scroller;
     private LinearLayout row;
@@ -171,6 +174,7 @@ public final class Home extends Activity {
         // System language changed: the activity isn't recreated, the texts are updated instead.
         timeFormat = null;
         settings.setText(R.string.settings);
+        inputs.setText(R.string.inputs);
         updateClock();
         updateHint();
     }
@@ -271,7 +275,7 @@ public final class Home extends Activity {
             } else {
                 View f = getCurrentFocus();
                 if (f instanceof Tile) openAppMenu((Tile) f);
-                else if (f == settings || f == brand) openOptions();
+                else if (f == settings || f == brand || f == inputs) openOptions();
             }
             return true;
         }
@@ -298,7 +302,8 @@ public final class Home extends Activity {
         LinearLayout bar = new LinearLayout(this);
         bar.setOrientation(LinearLayout.HORIZONTAL);
         bar.setGravity(Gravity.CENTER_VERTICAL);
-        // Two buttons: the brand opens FeatherTV's options and Settings opens the Fire TV's.
+        // The brand opens FeatherTV's options; after the divider, the TV's own: its inputs (only
+        // when it has any) and Settings.
         brand = barButton(small, R.string.app_name, R.drawable.ic_feather, this::openOptions);
         brand.setContentDescription(getString(R.string.menu_options));
         bar.addView(brand);
@@ -307,11 +312,13 @@ public final class Home extends Activity {
         LinearLayout.LayoutParams sp = new LinearLayout.LayoutParams(Math.max(1, screenH / 600), (int) small);
         sp.leftMargin = sp.rightMargin = (int) (small * 0.3f);
         bar.addView(sep, sp);
+        inputs = barButton(small, R.string.inputs, R.drawable.ic_input, this::openInputs);
+        inputs.setVisibility(View.GONE);
+        bar.addView(inputs);
         settings = barButton(small, R.string.settings, R.drawable.ic_settings, this::openSettings);
         bar.addView(settings);
         // ← and → move between the buttons; ↓ goes back to the app row.
-        barKeys(brand, null, settings);
-        barKeys(settings, brand, null);
+        barKeys(brand, inputs, settings);
         FrameLayout.LayoutParams bp = at(0, (int) (screenH * 0.055f), Gravity.TOP | Gravity.END);
         bp.rightMargin = side;
         root.addView(bar, bp);
@@ -372,32 +379,40 @@ public final class Home extends Activity {
         return b;
     }
 
-    /** Keys on the top bar: ← → between buttons (or nothing), ↓ to the row, ↑ nothing. */
-    private void barKeys(View b, final View left, final View right) {
-        b.setOnKeyListener((v, code, e) -> {
-            if (e.getAction() != KeyEvent.ACTION_DOWN) return false;
-            switch (code) {
-                case KeyEvent.KEYCODE_DPAD_DOWN:
-                    focusApp(focusedPkg);
-                    return true;
-                case KeyEvent.KEYCODE_DPAD_LEFT:
-                    if (left != null) left.requestFocus();
-                    return true;
-                case KeyEvent.KEYCODE_DPAD_RIGHT:
-                    if (right != null) right.requestFocus();
-                    return true;
-                case KeyEvent.KEYCODE_DPAD_UP:
-                    return true;
-                default:
-                    return false;
-            }
-        });
+    /** Keys on the top bar: ← → to the next visible button (or nothing), ↓ to the row, ↑ nothing. */
+    private void barKeys(final View... buttons) {
+        for (int i = 0; i < buttons.length; i++) {
+            final int at = i;
+            buttons[i].setOnKeyListener((v, code, e) -> {
+                if (e.getAction() != KeyEvent.ACTION_DOWN) return false;
+                switch (code) {
+                    case KeyEvent.KEYCODE_DPAD_DOWN:
+                        focusApp(focusedPkg);
+                        return true;
+                    case KeyEvent.KEYCODE_DPAD_LEFT:
+                    case KeyEvent.KEYCODE_DPAD_RIGHT:
+                        int step = code == KeyEvent.KEYCODE_DPAD_LEFT ? -1 : 1;
+                        for (int j = at + step; j >= 0 && j < buttons.length; j += step) {
+                            if (buttons[j].getVisibility() == View.VISIBLE) {
+                                buttons[j].requestFocus();
+                                break;
+                            }
+                        }
+                        return true;
+                    case KeyEvent.KEYCODE_DPAD_UP:
+                        return true;
+                    default:
+                        return false;
+                }
+            });
+        }
     }
 
     /** Applies the settings that don't need the screen to be recreated: color, background and clock. */
     private void applyLook() {
         accent = config.accent();
         Ui.pill(brand, screenH * 0.068f, accent, brand);
+        Ui.pill(inputs, screenH * 0.068f, accent, inputs);
         Ui.pill(settings, screenH * 0.068f, accent, settings);
         boolean black = "black".equalsIgnoreCase(config.get("background", "stage"));
         stage.setVisibility(black ? View.GONE : View.VISIBLE);
@@ -430,6 +445,7 @@ public final class Home extends Activity {
         }
         fixMargins();
         settings.setFocusable(true);
+        inputs.setFocusable(true);
         brand.setFocusable(true);
         if (first || appHadFocus || !(settings.isFocused() || brand.isFocused())) focusApp(focusedPkg);
         if (first) {
@@ -654,10 +670,48 @@ public final class Home extends Activity {
         final int gen = ++generation, w = tileWidth(), h = tileHeight();
         BG.execute(() -> {
             final List<App> apps = Catalog.load(app, order, hide, show, names, w, h, previous);
+            // Reloaded with the apps: a package change can also add or remove an input.
+            final List<Inputs.Input> ins = Inputs.load(app);
             ui.post(() -> {
-                if (gen == generation && !isDestroyed() && moving == null) showApps(apps);
+                if (gen != generation || isDestroyed() || moving != null) return;
+                // In the same frame as the apps, so the bar doesn't shift once they are on screen.
+                showInputs(ins);
+                showApps(apps);
             });
         });
+    }
+
+    private void showInputs(List<Inputs.Input> list) {
+        inputList = list;
+        boolean any = !list.isEmpty();
+        if ((inputs.getVisibility() == View.VISIBLE) == any) return;
+        if (!any && inputs.isFocused()) settings.requestFocus();
+        inputs.setVisibility(any ? View.VISIBLE : View.GONE);
+    }
+
+    /** The TV's inputs in the side menu; the ones with nothing plugged in are marked. */
+    private void openInputs() {
+        final List<Inputs.Input> list = inputList;
+        if (list.isEmpty()) return;
+        CharSequence[] labels = new CharSequence[list.size()];
+        Runnable[] actions = new Runnable[list.size()];
+        for (int i = 0; i < list.size(); i++) {
+            final Inputs.Input in = list.get(i);
+            String text = in.device != null ? in.label + "  ·  " + in.device : in.label;
+            labels[i] = Inputs.isConnected(this, in) ? text : getString(R.string.input_unplugged, text);
+            actions[i] = () -> openInput(in);
+        }
+        panel.show(getString(R.string.inputs), accent, inputs, labels, actions);
+    }
+
+    private void openInput(Inputs.Input in) {
+        leftForApp = true;
+        try {
+            startActivity(Inputs.intent(in));
+        } catch (RuntimeException e) {
+            leftForApp = false;
+            Toast.makeText(this, getString(R.string.launch_failed, in.label), Toast.LENGTH_SHORT).show();
+        }
     }
 
     /**

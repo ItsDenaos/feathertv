@@ -14,7 +14,7 @@ box it is likely to be heavier.
 
 | | Fire OS | FeatherTV |
 |---|---|---|
-| App size | 28 MB | **46 KB** (about 600 times smaller) |
+| App size | 28 MB | **49 KB** (about 600 times smaller) |
 | Idle memory | 121 MB (74 MB excluding graphics) | **44 MB** (24 MB excluding graphics) |
 | Back to the home screen from an app (`am start`) | 376 ms | **96 ms** |
 | Slow frames while moving through the apps | 39 % (p90 32 ms, p99 93 ms) | **6 %** (p90 14 ms) · 0 % with the black background |

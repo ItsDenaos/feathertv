@@ -13,7 +13,8 @@
 #   --cold          cold start (force-stop). Fire OS disables a force-stopped app's accessibility
 #                   service; the script enables it again afterwards.
 #
-# Variables: ADB (path to adb), FTV_DEVICE (ip:port), FTV_TEST_APP (app to return from).
+# Variables: ADB (path to adb), FTV_DEVICE (ip:port), FTV_TEST_APP (app to return from),
+#   FTV_REMOTE=0 (no virtual remote: Home is pressed with input keyevent).
 set -euo pipefail
 export MSYS_NO_PATHCONV=1   # Git Bash: don't turn device paths (/data/...) into Windows paths
 COMP="${1:?pass the component, e.g. tv.feathertv.home/.Home}"
@@ -40,24 +41,27 @@ sh pm path "$PKG" >/dev/null || { echo "$PKG is not installed" >&2; exit 1; }
 echo "== $COMP"
 echo "APK:           $(sh stat -c %s "$(sh pm path "$PKG" | head -1 | cut -d: -f2)") bytes"
 
-# Virtual remote: a consumer-control HID device whose only key is Home (AC Home, KEY_HOMEPAGE),
-# fed through a pipe so it stays registered for the whole run (adding an input device makes the
-# app in front reload, which would disturb the measurements).
+# Virtual remote: a consumer-control HID device whose only key is Home (AC Home, KEY_HOMEPAGE).
+# It stays registered for the whole run (adding an input device makes the app in front reload,
+# which would disturb the measurements): `hid -` on the device reads its events from this
+# script through adb's stdin. A pipe on the device doesn't work: Fire OS refuses mkfifo in
+# /data/local/tmp, and a background process there keeps `adb shell` from returning.
 R=/data/local/tmp/ftv-remote
 remote_start() {
+  [ "${FTV_REMOTE:-1}" != 0 ] || return 0
   sh "command -v hid" >/dev/null 2>&1 || return 0
-  a shell "cat > $R-register.json" <<'EOF'
-{"id": 7, "command": "register", "name": "FeatherTV bench remote", "vid": 6353, "pid": 32343,
- "descriptor": [5, 12, 9, 1, 161, 1, 133, 1, 21, 0, 38, 255, 3, 25, 0, 42, 255, 3, 117, 16, 149, 1, 129, 0, 192]}
-EOF
-  a shell "echo '{\"id\": 7, \"command\": \"report\", \"report\": [1, 35, 2]}' > $R-down.json"
-  a shell "echo '{\"id\": 7, \"command\": \"report\", \"report\": [1, 0, 0]}' > $R-up.json"
-  sh "rm -f $R; mkfifo $R; (sleep 100000 > $R &); (hid $R > /dev/null 2>&1 &); cat $R-register.json > $R; sleep 2;
-      getevent -pl 2>/dev/null | grep -B1 'FeatherTV bench remote' | sed -n '1s/.*: //p' > $R.dev" >/dev/null
-  if [ -n "$(sh cat $R.dev 2>/dev/null || true)" ]; then REMOTE=1; fi
+  coproc HID { a shell hid - >/dev/null 2>&1; }
+  exec {REMOTE_FD}>&"${HID[1]}"
+  echo '{"id": 7, "command": "register", "name": "FeatherTV bench remote", "vid": 6353, "pid": 32343,
+    "descriptor": [5, 12, 9, 1, 161, 1, 133, 1, 21, 0, 38, 255, 3, 25, 0, 42, 255, 3, 117, 16, 149, 1, 129, 0, 192]}' >&$REMOTE_FD
+  sleep 2.5
+  REMOTE=$(sh "getevent -pl 2>/dev/null | grep -B1 'FeatherTV bench remote' | sed -n '1s/.*: //p'" || true)
 }
 remote_stop() {
-  sh "pkill -f com.android.commands.hid; pkill -f 'sleep 100000'; rm -f $R $R.dev $R.key" >/dev/null 2>&1 || true
+  # Closing hid's input unregisters the remote.
+  [ -z "${REMOTE_FD:-}" ] || exec {REMOTE_FD}>&-
+  [ -z "${HID_PID:-}" ] || { sleep 1; kill "$HID_PID" 2>/dev/null || true; }
+  sh "rm -f $R.key" >/dev/null 2>&1 || true
 }
 REMOTE=
 trap remote_stop EXIT
@@ -66,8 +70,14 @@ remote_start
 # Presses Home; prints the monotonic time of the key press (empty: read it from the log).
 press_home() {
   if [ -n "$REMOTE" ]; then
-    sh "(getevent -lt -c 3 \$(cat $R.dev) > $R.key &); sleep 0.3; cat $R-down.json > $R; sleep 0.09;
-        cat $R-up.json > $R; sleep 0.3; cat $R.key" |
+    # getevent runs detached (every stream redirected) so that this adb shell returns at once.
+    sh "rm -f $R.key; (getevent -lt -c 3 $REMOTE > $R.key 2>/dev/null < /dev/null &)" >/dev/null
+    sleep 0.3
+    echo '{"id": 7, "command": "report", "report": [1, 35, 2]}' >&$REMOTE_FD
+    sleep 0.09
+    echo '{"id": 7, "command": "report", "report": [1, 0, 0]}' >&$REMOTE_FD
+    sleep 0.4
+    sh "cat $R.key" |
       awk '/KEY_HOMEPAGE/ && /DOWN/ && !f {match($0, /[0-9]+\.[0-9]+/); print substr($0, RSTART, RLENGTH); f=1}'
   else
     # Android 10+ no longer logs injected keys: a log line right before the key marks the time.

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# A/B on a Fire TV: FeatherTV 1.1.0 (A) vs the working tree (B) vs the working tree with Guard's
-# early trigger (C), and optionally Amazon's own launcher (S). The variants alternate round by round
-# so the device's state (memory, temperature) affects them all alike.
+# A/B on a Fire TV: FeatherTV 1.1.0 (A) vs the working tree (B), and optionally Amazon's own
+# launcher (S). The variants alternate round by round so the device's state (memory, temperature)
+# affects them all alike.
 #
 # Usage: tools/perf/ab.sh [rounds=3] [runs per round=3] [--stock] [--no-build | --build-only]
 # Variables: FTV_DEVICE (default 192.168.68.105:5555), ADB, FTV_AB_BASE (the commit built as A,
@@ -17,7 +17,6 @@ done
 # Windows form (C:/...) under Git Bash: git and adb are Windows programs.
 ROOT=$(cd "$(dirname "$0")/../.." && { pwd -W 2>/dev/null || pwd; })
 PERF=$ROOT/build/perf
-PATCH=$ROOT/tools/perf/early-trigger.patch
 BASE=${FTV_AB_BASE:-132db22}
 mkdir -p "$PERF"
 export FTV_DEVICE=${FTV_DEVICE:-192.168.68.105:5555}
@@ -36,7 +35,6 @@ build_variant() {  # name, extra step
     cp -r "$ROOT/src" "$ROOT/res" "$ROOT/tools" "$dir/"
     cp "$ROOT/AndroidManifest.xml" "$ROOT/build.sh" "$ROOT/proguard-rules.pro" "$dir/"
   fi
-  [ "$name" = C ] && git -C "$dir" apply "$PATCH"
   # build.sh needs Git Bash to convert its paths for the SDK tools.
   (cd "$dir" && env -u MSYS_NO_PATHCONV ./build.sh >/dev/null)
   cp "$dir/build/feathertv.apk" "$PERF/$name.apk"
@@ -56,11 +54,11 @@ relink() {
 
 if [ -n "$BUILD" ]; then
   mkdir -p "$TMP"
-  for v in A B C; do build_variant $v; done
+  for v in A B; do build_variant $v; done
 fi
 [ -z "$ONLY" ] || exit 0
 
-VARIANTS="A B C"
+VARIANTS="A B"
 [ -n "$STOCK" ] && VARIANTS="$VARIANTS S"
 rm -f "$PERF"/out-*.txt
 for r in $(seq "$ROUNDS"); do

@@ -26,6 +26,27 @@ same device, the Home button took 1147 ms with 1.0.0 and 1051 ms with 1.1.0: the
 noise. Both are higher than in the table above because on Fire OS the Home button depends on how long
 Amazon's launcher takes to draw, which varies with the state of the device (see below).
 
+### After 1.1.0: the optimizations below, A/B
+
+Measured on 2026-11-07 on the same Fire TV Stick with [tools/perf/ab.sh](../tools/perf/ab.sh): the
+variants alternate over three rounds of three runs, so the device's state affects them all alike,
+and each figure is the median of the nine samples. Home is pressed on a virtual remote (the same
+path as the real one) and timed until FeatherTV's first frame is on screen and until it is in
+front. "Early trigger" is Guard reacting to the first content change of Amazon's home screen
+instead of waiting for its window (see below); it was kept.
+
+| | 1.1.0 | Optimized | Optimized + early trigger | Fire OS launcher |
+|---|---|---|---|---|
+| Home button, press to on screen | 1690 ms | 1740 ms | **1214 ms** | 974 ms |
+| Home button, press to in front | 1103 ms | 1083 ms | **754 ms** | 298 ms |
+| Back to the home screen (`am start -W`) | 160 ms | 144 ms | **130 ms** | 630 ms |
+| Slow frames while moving through the apps | 3.9 % | 2.6 % | **1.3 %** | 24.5 % |
+| Idle memory, excluding graphics | 27.0 MB | **23.0 MB** | 23.4 MB | 83.1 MB |
+
+The optimizations alone don't change the Home button (both within the noise) but make scrolling
+smoother and use 4 MB less; the early trigger takes about half a second off the Home button in
+every round (on screen: 1.0–1.8 s against 1.4–2.1 s).
+
 ## Android TV
 
 The same APK, measured on 2026-10-18 on a Hyundai AI PONT CO television (Android TV 14, interface at
@@ -47,6 +68,26 @@ and later no longer log injected keys, so the Home button is timed from the devi
 before the key command: both columns include a few tens of milliseconds of the command's own startup,
 and the row can't be compared with the Fire OS table.
 
+### After 1.1.0: the optimizations below, A/B
+
+Measured on 2026-11-07 on the same television, the two versions alternating over three rounds of
+three runs (median of nine samples), Home pressed with `input keyevent` as above. The test was run
+twice; this is the second run, once the TV had settled after a restart.
+
+| | 1.1.0 | Optimized |
+|---|---|---|
+| Home button, press to on screen | 237 ms | 240 ms |
+| Home button, press to in front | 122 ms | 139 ms |
+| Back to the home screen (`am start -W`) | 127 ms | 179 ms |
+| Cold start | 650 ms | 760 ms |
+| Slow frames while moving through the apps | 0.6 % | 1.2 % |
+| Idle memory, excluding graphics | 38.7 MB | **32.4 MB** |
+
+On this TV the optimizations only save memory (4–6 MB in both runs). The times are within the noise
+between runs (the cold start went the other way in the first one: 670 ms against 599 ms), except
+going back to the home screen with `am start -W`, which was about 50 ms slower in both runs; the
+Home button, which is what people use, didn't change.
+
 ## Where the Home button's time goes on Fire OS
 
 Traced on 2026-10-18 with 1.1.0, pressing Home from Netflix on a virtual remote (the same path as
@@ -64,8 +105,9 @@ Most of the wait comes before FeatherTV can do anything: Guard only learns about
 launcher has built its screen. But FeatherTV then needs 400–600 ms to draw its first frame, against
 about 130 ms when it comes back without Amazon's launcher in the middle: both compete for the CPU and
 the GPU. Amazon's launcher already sends window-content events about 450 ms before it reports its
-window. Reacting to them brings FeatherTV to the front sooner, but it then draws while Amazon's
-launcher is at its busiest, and in a first test (four presses) it wasn't on screen any sooner.
+window. Reacting to them brings FeatherTV to the front sooner, while Amazon's launcher is still
+busy; a first test of four presses suggested it wouldn't be on screen any sooner, but the A/B above
+(nine presses per variant) showed it is, by about 500 ms, so Guard now reacts to the first of them.
 
 ## What was optimized
 
@@ -80,9 +122,21 @@ launcher is at its busiest, and in a first test (four presses) it wasn't on scre
   memory bandwidth can handle).
 - **`resumeWhilePausing`**: FeatherTV appears without waiting for Amazon's launcher to finish
   pausing, about 400 ms less on every Home press.
+- **Early trigger** (Fire OS): Guard brings FeatherTV on the first content change of Amazon's home
+  screen instead of its window report, and its curtain lifts at once (its window is opaque, so the
+  old 120 ms fade was solid black anyway). About 500 ms less on every Home press.
+- **Opaque window**: without a window background Android made it translucent, so SurfaceFlinger
+  blended it with whatever was below (Amazon's launcher). The greeting is no longer set again when
+  it hasn't changed (that laid out the whole screen), Guard's setting isn't queried while it is
+  running, and apps open with the component found when loading them.
+- **Tile art**: apps that didn't change keep their art across reloads (an install or update used
+  to repaint them all), and on Android 9+ it lives in graphics memory (`Bitmap.Config.HARDWARE`),
+  uploaded once. The loading thread runs at nice 5. Together: 4 MB less on Fire OS, 4–6 MB on
+  Android TV, and smoother scrolling on Fire OS.
 - **Tile art painted off the main thread**, at its exact size; the original banner of each app is
   no longer kept in memory.
-- **APK**: R8 (shrinks and renames the code) and recompression of the resource table: 58.1 → 45.8 KB.
+- **APK**: R8 (shrinks and renames the code) and recompression of the resource table: 58.1 → 45.8 KB
+  (48.8 KB in 1.2.0, with the inputs).
 
 ## What couldn't be improved
 
